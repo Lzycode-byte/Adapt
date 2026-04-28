@@ -4,14 +4,21 @@ import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
 class Heatmap extends StatelessWidget {
   final DateTime startDate;
   final Map<DateTime, int> datasets;
+  final void Function(DateTime)? onClick;
 
-  const Heatmap({super.key, required this.startDate, required this.datasets});
+  const Heatmap({
+    super.key,
+    required this.startDate,
+    required this.datasets,
+    required this.onClick,
+  });
 
   @override
   Widget build(BuildContext context) {
     return HeatMap(
       startDate: startDate,
       endDate: DateTime.now(),
+      onClick: onClick,
       datasets: datasets,
       colorMode: ColorMode.color,
       defaultColor: Theme.of(context).colorScheme.secondary,

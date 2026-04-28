@@ -111,7 +111,6 @@ class _HomePageState extends State<HomePage> {
           ),
           MaterialButton(
             onPressed: () {
-              String newHabitName = textController.text;
               context.read<HabitDatabase>().deleteHabit(habit.id);
 
               Navigator.pop(context);
@@ -155,6 +154,7 @@ class _HomePageState extends State<HomePage> {
       builder: (context, snapshot) {
         if (snapshot.hasData) {
           return Heatmap(
+            onClick: _showHabitsForDate,
             startDate: snapshot.data!,
             datasets: prepHeatMapDatabase(currentHabits),
           );
@@ -184,6 +184,99 @@ class _HomePageState extends State<HomePage> {
           deleteHabit: (context) => deleteHabitBox(habit),
         );
       },
+    );
+  }
+
+  void _showHabitsForDate(DateTime date) {
+    final habitDatabase = context.read<HabitDatabase>();
+    final List<Habit> currentHabits = habitDatabase.currentHabits;
+
+    // Normalize the clicked date (remove time component)
+    final normalizedClickedDate = DateTime(date.year, date.month, date.day);
+
+    // Prepare habit data with completion status
+    final List<Map<String, dynamic>> habitsWithStatus = currentHabits.map((
+      habit,
+    ) {
+      final bool isCompleted = habit.completedDays.any((completedDate) {
+        final normalizedCompletedDate = DateTime(
+          completedDate.year,
+          completedDate.month,
+          completedDate.day,
+        );
+        return normalizedCompletedDate == normalizedClickedDate;
+      });
+
+      return {'habit': habit, 'isCompleted': isCompleted};
+    }).toList();
+    // Show bottom sheet with all habits and their status
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Habits for ${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: habitsWithStatus.length,
+                itemBuilder: (context, index) {
+                  final item = habitsWithStatus[index];
+                  final habit = item['habit'] as Habit;
+                  final bool isCompleted = item['isCompleted'] as bool;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        // Completion status indicator
+                        Icon(
+                          isCompleted
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: isCompleted ? Colors.green : Colors.grey,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        // Habit name with optional styling for completed
+                        Expanded(
+                          child: Text(
+                            habit.name,
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  decoration: isCompleted
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                  color: isCompleted
+                                      ? Colors.green.shade700
+                                      : null,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            // const SizedBox(height: 24),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
