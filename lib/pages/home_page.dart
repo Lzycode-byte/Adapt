@@ -5,6 +5,7 @@ import 'package:adapt/database/habit_database.dart';
 import 'package:adapt/models/habit.dart';
 import 'package:adapt/utils/habit_util.dart';
 import 'package:flutter/material.dart';
+import 'package:gif_view/gif_view.dart';
 import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
@@ -27,9 +28,20 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        content: TextField(
-          controller: textController,
-          decoration: const InputDecoration(hintText: "Create New Habit"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GifView.asset(
+              "assets/image_assets/mahoraga.gif",
+              height: 120,
+              width: 120,
+              fit: BoxFit.contain,
+            ),
+            TextField(
+              controller: textController,
+              decoration: const InputDecoration(hintText: "Create New Habit"),
+            ),
+          ],
         ),
         actions: [
           MaterialButton(
