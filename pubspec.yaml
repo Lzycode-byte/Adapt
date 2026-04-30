@@ -73,6 +73,7 @@ flutter:
   assets:
     - assets/image_assets/mahoraga.gif
     - assets/image_assets/mahoraga3.gif
+    - assets/image_assets/mahoraga_final.gif
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

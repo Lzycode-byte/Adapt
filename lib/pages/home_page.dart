@@ -27,42 +27,49 @@ class _HomePageState extends State<HomePage> {
   void createHewHabit() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GifView.asset(
-              "assets/image_assets/mahoraga.gif",
-              height: 120,
-              width: 120,
-              fit: BoxFit.contain,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GifView.asset(
+                "assets/image_assets/mahoraga_final.gif",
+                height: 140,
+                width: 140,
+                fit: BoxFit.contain,
+              ),
+              TextField(
+                controller: textController,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: const InputDecoration(
+                  hintText: "You're adapting a new habit",
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            MaterialButton(
+              onPressed: () {
+                Navigator.pop(context);
+                textController.clear();
+              },
+              child: const Text("Cancel"),
             ),
-            TextField(
-              controller: textController,
-              decoration: const InputDecoration(hintText: "Create New Habit"),
+            MaterialButton(
+              onPressed: textController.text.trim().isEmpty
+                  ? null
+                  : () {
+                      String newHabitName = textController.text;
+                      context.read<HabitDatabase>().addHabit(newHabitName);
+
+                      Navigator.pop(context);
+
+                      textController.clear();
+                    },
+              child: const Text("Save"),
             ),
           ],
         ),
-        actions: [
-          MaterialButton(
-            onPressed: () {
-              Navigator.pop(context);
-              textController.clear();
-            },
-            child: const Text("Cancel"),
-          ),
-          MaterialButton(
-            onPressed: () {
-              String newHabitName = textController.text;
-              context.read<HabitDatabase>().addHabit(newHabitName);
-
-              Navigator.pop(context);
-
-              textController.clear();
-            },
-            child: const Text("Save"),
-          ),
-        ],
       ),
     );
   }
