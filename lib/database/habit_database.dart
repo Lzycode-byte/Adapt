@@ -1,8 +1,10 @@
 import 'package:adapt/models/app_settings.dart';
 import 'package:adapt/models/habit.dart';
+import 'package:adapt/theme/theme_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:isar_community/isar.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 
 class HabitDatabase extends ChangeNotifier {
   static late Isar isar;

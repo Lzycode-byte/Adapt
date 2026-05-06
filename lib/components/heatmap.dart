@@ -17,7 +17,15 @@ class Heatmap extends StatelessWidget {
   Widget build(BuildContext context) {
     return HeatMap(
       startDate: startDate,
-      endDate: DateTime.now(),
+      // endDate: DateTime.now().add(const Duration(days: 1)),
+      endDate: DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+        23,
+        59,
+        59,
+      ),
       onClick: onClick,
       datasets: datasets,
       colorMode: ColorMode.color,

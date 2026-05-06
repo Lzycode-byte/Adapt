@@ -26,3 +26,7 @@ Map<DateTime, int> prepHeatMapDatabase(List<Habit> habits) {
   }
   return dataset;
 }
+
+// int habitStreak(List<Habit> completedDays){
+//
+// }

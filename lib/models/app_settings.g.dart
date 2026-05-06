@@ -17,8 +17,13 @@ const AppSettingsSchema = CollectionSchema(
   name: r'AppSettings',
   id: -5633561779022347008,
   properties: {
-    r'firstLaunchDate': PropertySchema(
+    r'currentMode': PropertySchema(
       id: 0,
+      name: r'currentMode',
+      type: IsarType.bool,
+    ),
+    r'firstLaunchDate': PropertySchema(
+      id: 1,
       name: r'firstLaunchDate',
       type: IsarType.dateTime,
     ),
@@ -54,7 +59,8 @@ void _appSettingsSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeDateTime(offsets[0], object.firstLaunchDate);
+  writer.writeBool(offsets[0], object.currentMode);
+  writer.writeDateTime(offsets[1], object.firstLaunchDate);
 }
 
 AppSettings _appSettingsDeserialize(
@@ -64,7 +70,8 @@ AppSettings _appSettingsDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = AppSettings();
-  object.firstLaunchDate = reader.readDateTimeOrNull(offsets[0]);
+  object.currentMode = reader.readBoolOrNull(offsets[0]);
+  object.firstLaunchDate = reader.readDateTimeOrNull(offsets[1]);
   object.id = id;
   return object;
 }
@@ -77,6 +84,8 @@ P _appSettingsDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
+      return (reader.readBoolOrNull(offset)) as P;
+    case 1:
       return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -183,6 +192,33 @@ extension AppSettingsQueryWhere
 
 extension AppSettingsQueryFilter
     on QueryBuilder<AppSettings, AppSettings, QFilterCondition> {
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+  currentModeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'currentMode'),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+  currentModeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'currentMode'),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
+  currentModeEqualTo(bool? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'currentMode', value: value),
+      );
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterFilterCondition>
   firstLaunchDateIsNull() {
     return QueryBuilder.apply(this, (query) {
@@ -324,6 +360,18 @@ extension AppSettingsQueryLinks
 
 extension AppSettingsQuerySortBy
     on QueryBuilder<AppSettings, AppSettings, QSortBy> {
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy> sortByCurrentMode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'currentMode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy> sortByCurrentModeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'currentMode', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy> sortByFirstLaunchDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firstLaunchDate', Sort.asc);
@@ -340,6 +388,18 @@ extension AppSettingsQuerySortBy
 
 extension AppSettingsQuerySortThenBy
     on QueryBuilder<AppSettings, AppSettings, QSortThenBy> {
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy> thenByCurrentMode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'currentMode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettings, AppSettings, QAfterSortBy> thenByCurrentModeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'currentMode', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QAfterSortBy> thenByFirstLaunchDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'firstLaunchDate', Sort.asc);
@@ -368,6 +428,12 @@ extension AppSettingsQuerySortThenBy
 
 extension AppSettingsQueryWhereDistinct
     on QueryBuilder<AppSettings, AppSettings, QDistinct> {
+  QueryBuilder<AppSettings, AppSettings, QDistinct> distinctByCurrentMode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'currentMode');
+    });
+  }
+
   QueryBuilder<AppSettings, AppSettings, QDistinct>
   distinctByFirstLaunchDate() {
     return QueryBuilder.apply(this, (query) {
@@ -381,6 +447,12 @@ extension AppSettingsQueryProperty
   QueryBuilder<AppSettings, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<AppSettings, bool?, QQueryOperations> currentModeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'currentMode');
     });
   }
 

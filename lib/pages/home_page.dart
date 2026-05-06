@@ -1,12 +1,13 @@
 import 'package:adapt/components/habit_components/habit_tile.dart';
 import 'package:adapt/components/heatmap.dart';
-import 'package:adapt/components/home_drawer.dart';
 import 'package:adapt/database/habit_database.dart';
 import 'package:adapt/models/habit.dart';
 import 'package:adapt/utils/habit_util.dart';
 import 'package:flutter/material.dart';
-import 'package:gif_view/gif_view.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
+
+import '../components/scaffold.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,8 +33,8 @@ class _HomePageState extends State<HomePage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GifView.asset(
-                "assets/image_assets/mahoraga_final.gif",
+              Lottie.asset(
+                "assets/json_assets/2.json",
                 height: 140,
                 width: 140,
                 fit: BoxFit.contain,
@@ -143,17 +144,17 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        title: Text("Adapt"),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-
-      drawer: HomeDrawer(),
+    return MyScaffold(
+      title: "Adapt",
       // body: SafeArea(child: Calendar()),
-      body: ListView(children: [_buildHeatMap(), _buildHabitList()]),
+      body: ListView(
+        children: [
+          _buildHeatMap(),
+          Divider(endIndent: 20, indent: 30, thickness: 0.5),
+          SizedBox(height: 10),
+          _buildHabitList(),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: createHewHabit,
         elevation: 0,

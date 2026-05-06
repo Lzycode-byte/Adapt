@@ -44,6 +44,8 @@ dependencies:
   flutter_slidable: ^4.0.3
   flutter_heatmap_calendar: ^1.0.5
   streak_calculator: ^1.0.0
+  go_router: ^17.2.2
+  lottie: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -74,6 +76,8 @@ flutter:
     - assets/image_assets/mahoraga.gif
     - assets/image_assets/mahoraga3.gif
     - assets/image_assets/mahoraga_final.gif
+    - assets/json_assets/1.json
+    - assets/json_assets/2.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
