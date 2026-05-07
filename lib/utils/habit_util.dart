@@ -1,4 +1,5 @@
 import 'package:adapt/models/habit.dart';
+import 'package:streak_calculator/streak_calculator.dart';
 
 bool isHabitCompleted(List<DateTime> completedDays) {
   final today = DateTime.now();
@@ -27,6 +28,13 @@ Map<DateTime, int> prepHeatMapDatabase(List<Habit> habits) {
   return dataset;
 }
 
-// int habitStreak(List<Habit> completedDays){
-//
-// }
+int habitStreak(List<DateTime> completedDays) {
+  if (completedDays.isNotEmpty) {
+    final streakCalc = StreakCalculator(
+      dates: completedDays,
+      streakType: StreakType.daily,
+    );
+    return streakCalc.currentStreak;
+  }
+  return 0;
+}

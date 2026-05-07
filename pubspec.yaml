@@ -78,7 +78,7 @@ flutter:
     - assets/image_assets/mahoraga_final.gif
     - assets/json_assets/1.json
     - assets/json_assets/2.json
-
+    - assets/json_assets/Fire.json
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

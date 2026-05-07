@@ -199,6 +199,7 @@ class _HomePageState extends State<HomePage> {
         return HabitTile(
           isCompleted: isCompletedToday,
           text: habit.name,
+          completedDays: habit.completedDays,
           onChanged: (value) => checkOnOff(value, habit),
           editHabit: (context) => editHabitBox(habit),
           deleteHabit: (context) => deleteHabitBox(habit),

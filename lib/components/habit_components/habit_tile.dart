@@ -1,9 +1,12 @@
+import 'package:adapt/components/habit_components/streak.dart';
+import 'package:adapt/utils/habit_util.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 class HabitTile extends StatelessWidget {
   final bool isCompleted;
   final String text;
+  final List<DateTime> completedDays;
   final void Function(bool?)? onChanged;
   final void Function(BuildContext?)? editHabit;
 
@@ -11,6 +14,7 @@ class HabitTile extends StatelessWidget {
 
   const HabitTile({
     super.key,
+    required this.completedDays,
     required this.isCompleted,
     required this.text,
     required this.onChanged,
@@ -68,6 +72,9 @@ class HabitTile extends StatelessWidget {
                 value: isCompleted,
                 onChanged: onChanged,
               ),
+              trailing: habitStreak(completedDays) >= 1
+                  ? Streak(completedDays: completedDays)
+                  : null,
             ),
           ),
         ),

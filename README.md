@@ -1,4 +1,4 @@
-# adapt
+# Adapt
 
 Adapt helps you create,maintain and adapt good habits, allowing you to achieve your long-term goals. Detailed charts and statistics show you how your habits improved over time
 
