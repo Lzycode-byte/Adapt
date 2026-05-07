@@ -19,7 +19,7 @@ flutter run
 ```
 
 ## Roadmap
-- [ ] Streaks
+- [x] Streaks
 - [ ] Analytics 
 - [ ] Save Completed/Not Completed Habits on the date 
 - [ ] Slidable hint 
