@@ -9,6 +9,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HabitDatabase.initialize();
   await HabitDatabase().saveFirstLaunchDate();
+  await HabitDatabase().ensureTodaySnapshot();
 
   runApp(
     MultiProvider(
@@ -34,7 +35,7 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     AssetLottie("assets/json_assets/2.json").load();
     AssetLottie("assets/json_assets/1.json").load();
-    AssetLottie("assets/json_assets/Fire.json").load();
+    AssetLottie("assets/json_assets/.json").load();
   }
 
   @override

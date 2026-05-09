@@ -17,10 +17,19 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  late Future<List<Object?>> _heatmapFuture;
+
+  @override
   void initState() {
-    Provider.of<HabitDatabase>(context, listen: false).readHabits();
+    final db = Provider.of<HabitDatabase>(context, listen: false);
+
+    db.readHabits();
 
     super.initState();
+    _heatmapFuture = Future.wait([
+      db.getFirstDate(),
+      db.getSnapshotHeatmapData(),
+    ]);
   }
 
   final TextEditingController textController = TextEditingController();
@@ -166,17 +175,34 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildHeatMap() {
     final habitDatabase = context.watch<HabitDatabase>();
+    final List<Habit> currentHabits = habitDatabase.currentHabits;
 
-    List<Habit> currentHabits = habitDatabase.currentHabits;
-
-    return FutureBuilder<DateTime?>(
-      future: habitDatabase.getFirstDate(),
+    return FutureBuilder<List<Object?>>(
+      future: _heatmapFuture,
+      // future: Future.wait([
+      //   habitDatabase.getFirstDate(),
+      //   habitDatabase.getSnapshotHeatmapData(), // ADD
+      // ]),
       builder: (context, snapshot) {
         if (snapshot.hasData) {
+          final startDate = snapshot.data![0] as DateTime?;
+          final snapshotDataset = snapshot.data![1] as Map<DateTime, int>;
+
+          if (startDate == null) return Container();
+
+          // Live data for today's current habits
+          final liveDataset = prepHeatMapDatabase(currentHabits);
+
+          // Merge: snapshot as base, live data fills/overwrites today
+          final mergedDataset = Map<DateTime, int>.from(snapshotDataset);
+          liveDataset.forEach((date, count) {
+            mergedDataset[date] = count; // live overwrites for today
+          });
+
           return Heatmap(
-            onClick: _showHabitsForDate,
-            startDate: snapshot.data!,
-            datasets: prepHeatMapDatabase(currentHabits),
+            onClick: (date) async => _showHabitsForDate(date),
+            startDate: startDate,
+            datasets: mergedDataset,
           );
         } else {
           return Container();
@@ -208,29 +234,47 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showHabitsForDate(DateTime date) {
+  void _showHabitsForDate(DateTime date) async {
     final habitDatabase = context.read<HabitDatabase>();
-    final List<Habit> currentHabits = habitDatabase.currentHabits;
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
 
-    // Normalize the clicked date (remove time component)
-    final normalizedClickedDate = DateTime(date.year, date.month, date.day);
+    List<Map<String, dynamic>> habitsWithStatus = [];
 
-    // Prepare habit data with completion status
-    final List<Map<String, dynamic>> habitsWithStatus = currentHabits.map((
-      habit,
-    ) {
-      final bool isCompleted = habit.completedDays.any((completedDate) {
-        final normalizedCompletedDate = DateTime(
-          completedDate.year,
-          completedDate.month,
-          completedDate.day,
-        );
-        return normalizedCompletedDate == normalizedClickedDate;
-      });
+    if (normalizedDate.isBefore(today)) {
+      // --- Historical date: use snapshot ---
+      final snapshot = await habitDatabase.getSnapshotForDate(normalizedDate);
 
-      return {'habit': habit, 'isCompleted': isCompleted};
-    }).toList();
-    // Show bottom sheet with all habits and their status
+      if (snapshot != null) {
+        for (int i = 0; i < snapshot.habitIds.length; i++) {
+          habitsWithStatus.add({
+            'name': snapshot.habitNames[i],
+            'isCompleted': snapshot.completionStatus[i],
+          });
+        }
+      }
+    } else {
+      // --- Today: use live data ---
+      final currentHabits = habitDatabase.currentHabits;
+      for (final habit in currentHabits) {
+        habitsWithStatus.add({
+          'name': habit.name,
+          'isCompleted': habit.completedDays.any(
+            (d) =>
+                d.year == today.year &&
+                d.month == today.month &&
+                d.day == today.day,
+          ),
+        });
+      }
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -240,54 +284,53 @@ class _HomePageState extends State<HomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Habits for ${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+              'Habits for ${normalizedDate.year}-'
+              '${normalizedDate.month.toString().padLeft(2, '0')}-'
+              '${normalizedDate.day.toString().padLeft(2, '0')}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            Expanded(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: habitsWithStatus.length,
-                itemBuilder: (context, index) {
-                  final item = habitsWithStatus[index];
-                  final habit = item['habit'] as Habit;
-                  final bool isCompleted = item['isCompleted'] as bool;
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        // Completion status indicator
-                        Icon(
-                          isCompleted
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: isCompleted ? Colors.green : Colors.grey,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        // Habit name with optional styling for completed
-                        Expanded(
-                          child: Text(
-                            habit.name,
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(
-                                  decoration: isCompleted
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                  color: isCompleted
-                                      ? Colors.green.shade700
-                                      : null,
+            habitsWithStatus.isEmpty
+                ? const Text("No habit data for this date.")
+                : Expanded(
+                    child: ListView.builder(
+                      itemCount: habitsWithStatus.length,
+                      itemBuilder: (context, index) {
+                        final item = habitsWithStatus[index];
+                        final String name = item['name'] as String;
+                        final bool isCompleted = item['isCompleted'] as bool;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isCompleted
+                                    ? Icons.check_circle
+                                    : Icons.radio_button_unchecked,
+                                color: isCompleted ? Colors.green : Colors.grey,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: Theme.of(context).textTheme.bodyLarge
+                                      ?.copyWith(
+                                        decoration: isCompleted
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                        color: isCompleted
+                                            ? Colors.green.shade700
+                                            : null,
+                                      ),
                                 ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-            ),
-            // const SizedBox(height: 24),
+                  ),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
