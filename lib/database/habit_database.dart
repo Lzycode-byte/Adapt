@@ -38,6 +38,7 @@ class HabitDatabase extends ChangeNotifier {
   Future<void> addHabit(String name) async {
     final newHabit = Habit()..name = name;
     await isar.writeTxn(() => isar.habits.put(newHabit));
+    await saveDailySnapshot();
     readHabits();
   }
 
@@ -89,6 +90,7 @@ class HabitDatabase extends ChangeNotifier {
     await isar.writeTxn(() async {
       await isar.habits.delete(id);
     });
+    await saveDailySnapshot();
     readHabits();
   }
 

@@ -304,22 +304,19 @@ class _HomePageState extends State<HomePage> {
 
     List<Map<String, dynamic>> habitsWithStatus = [];
 
-    if (normalizedDate.isBefore(today)) {
-      // --- Historical date: use snapshot ---
-      final snapshot = await habitDatabase.getSnapshotForDate(normalizedDate);
+    // Always try snapshot first (works for both past AND today)
+    final snapshot = await habitDatabase.getSnapshotForDate(normalizedDate);
 
-      if (snapshot != null) {
-        for (int i = 0; i < snapshot.habitIds.length; i++) {
-          habitsWithStatus.add({
-            'name': snapshot.habitNames[i],
-            'isCompleted': snapshot.completionStatus[i],
-          });
-        }
+    if (snapshot != null) {
+      for (int i = 0; i < snapshot.habitIds.length; i++) {
+        habitsWithStatus.add({
+          'name': snapshot.habitNames[i],
+          'isCompleted': snapshot.completionStatus[i],
+        });
       }
-    } else {
-      // --- Today: use live data ---
-      final currentHabits = habitDatabase.currentHabits;
-      for (final habit in currentHabits) {
+    } else if (normalizedDate == today) {
+      // Fallback: snapshot not yet created (first launch, no habit toggled yet)
+      for (final habit in habitDatabase.currentHabits) {
         habitsWithStatus.add({
           'name': habit.name,
           'isCompleted': habit.completedDays.any(
@@ -336,70 +333,123 @@ class _HomePageState extends State<HomePage> {
 
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Habits for ${normalizedDate.year}-'
-              '${normalizedDate.month.toString().padLeft(2, '0')}-'
-              '${normalizedDate.day.toString().padLeft(2, '0')}',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            habitsWithStatus.isEmpty
-                ? const Text("No habit data for this date.")
-                : Expanded(
-                    child: ListView.builder(
-                      itemCount: habitsWithStatus.length,
-                      itemBuilder: (context, index) {
-                        final item = habitsWithStatus[index];
-                        final String name = item['name'] as String;
-                        final bool isCompleted = item['isCompleted'] as bool;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            children: [
-                              Icon(
-                                isCompleted
-                                    ? Icons.check_circle
-                                    : Icons.radio_button_unchecked,
-                                color: isCompleted ? Colors.green : Colors.grey,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  name,
-                                  style: Theme.of(context).textTheme.bodyLarge
-                                      ?.copyWith(
-                                        decoration: isCompleted
-                                            ? TextDecoration.lineThrough
-                                            : null,
-                                        color: isCompleted
-                                            ? Colors.green.shade700
-                                            : null,
-                                      ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+      isScrollControlled: true, // lets the sheet grow taller if needed
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.4,
+        minChildSize: 0.25,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
+                ),
               ),
-            ),
-          ],
+              Text(
+                '${normalizedDate.day.toString().padLeft(2, '0')} '
+                '${_monthName(normalizedDate.month)} '
+                '${normalizedDate.year}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 4),
+              // Completion summary
+              if (habitsWithStatus.isNotEmpty)
+                Text(
+                  '${habitsWithStatus.where((h) => h['isCompleted'] == true).length}'
+                  ' / ${habitsWithStatus.length} completed',
+                  style: TextStyle(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onBackground.withOpacity(0.5),
+                    fontSize: 13,
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: habitsWithStatus.isEmpty
+                    ? const Center(child: Text("No habit data for this date."))
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: habitsWithStatus.length,
+                        itemBuilder: (context, index) {
+                          final item = habitsWithStatus[index];
+                          final String name = item['name'] as String;
+                          final bool isCompleted = item['isCompleted'] as bool;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isCompleted
+                                      ? Icons.check_circle
+                                      : Icons.radio_button_unchecked,
+                                  color: isCompleted
+                                      ? Colors.green
+                                      : Colors.grey,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    name,
+                                    style: Theme.of(context).textTheme.bodyLarge
+                                        ?.copyWith(
+                                          decoration: isCompleted
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          color: isCompleted
+                                              ? Colors.green.shade700
+                                              : Colors.grey.shade600,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  // Helper
+  String _monthName(int month) {
+    const names = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return names[month - 1];
   }
 }
