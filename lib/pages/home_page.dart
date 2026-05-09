@@ -26,10 +26,17 @@ class _HomePageState extends State<HomePage> {
     db.readHabits();
 
     super.initState();
-    _heatmapFuture = Future.wait([
-      db.getFirstDate(),
-      db.getSnapshotHeatmapData(),
-    ]);
+    _refreshHeatmap();
+  }
+
+  void _refreshHeatmap() {
+    final db = Provider.of<HabitDatabase>(context, listen: false);
+    setState(() {
+      _heatmapFuture = Future.wait([
+        db.getFirstDate(),
+        db.getSnapshotHeatmapData(),
+      ]);
+    });
   }
 
   final TextEditingController textController = TextEditingController();
@@ -84,9 +91,19 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // void checkOnOff(bool? value, Habit habit) {
+  //   if (value != null) {
+  //     context.read<HabitDatabase>().updateHabitCompletion(habit.id, value);
+  //   }
+  // }
+
   void checkOnOff(bool? value, Habit habit) {
     if (value != null) {
-      context.read<HabitDatabase>().updateHabitCompletion(habit.id, value);
+      context.read<HabitDatabase>().updateHabitCompletion(habit.id, value).then(
+        (_) {
+          _refreshHeatmap(); // ADD — refresh after toggle
+        },
+      );
     }
   }
 
@@ -141,6 +158,7 @@ class _HomePageState extends State<HomePage> {
           MaterialButton(
             onPressed: () {
               context.read<HabitDatabase>().deleteHabit(habit.id);
+              _refreshHeatmap();
 
               Navigator.pop(context);
             },
