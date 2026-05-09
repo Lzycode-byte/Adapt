@@ -3,7 +3,9 @@ import 'package:adapt/components/heatmap.dart';
 import 'package:adapt/database/habit_database.dart';
 import 'package:adapt/models/habit.dart';
 import 'package:adapt/utils/habit_util.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_tutorial_overlay/flutter_tutorial_overlay.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
@@ -18,6 +20,9 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late Future<List<Object?>> _heatmapFuture;
+  final GlobalKey _floatingButtonKey = GlobalKey();
+  final GlobalKey _habitTile = GlobalKey();
+  final GlobalKey _heatMap = GlobalKey();
 
   @override
   void initState() {
@@ -27,6 +32,29 @@ class _HomePageState extends State<HomePage> {
 
     super.initState();
     _refreshHeatmap();
+  }
+
+  void _startTutorial() {
+    final steps = [
+      TutorialStep(
+        targetKey: _floatingButtonKey,
+        description: "Tap the + button to adapt a new habit",
+        title: "Welcome!",
+      ),
+      TutorialStep(
+        targetKey: _habitTile,
+        description: "Slide the habits you created to left to edit/delete",
+        title: "This is part is where your habit goes!",
+      ),
+      TutorialStep(
+        targetKey: _heatMap,
+        description: "To see your habit status on the date",
+        title: "Tap on the date!",
+      ),
+    ];
+    final tutorial = TutorialOverlay(context: context, steps: steps);
+
+    tutorial.show();
   }
 
   void _refreshHeatmap() {
@@ -126,15 +154,19 @@ class _HomePageState extends State<HomePage> {
           ),
           MaterialButton(
             onPressed: () {
-              String newHabitName = textController.text;
-              context.read<HabitDatabase>().updateHabitName(
-                habit.id,
-                newHabitName,
-              );
+              textController.text.trim().isEmpty
+                  ? null
+                  : () {
+                      String newHabitName = textController.text;
+                      context.read<HabitDatabase>().updateHabitName(
+                        habit.id,
+                        newHabitName,
+                      );
 
-              Navigator.pop(context);
+                      Navigator.pop(context);
 
-              textController.clear();
+                      textController.clear();
+                    };
             },
             child: const Text("Save"),
           ),
@@ -173,6 +205,12 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return MyScaffold(
       title: "Adapt",
+      actions: [
+        IconButton(
+          onPressed: _startTutorial,
+          icon: Icon(CupertinoIcons.question_circle),
+        ),
+      ],
       // body: SafeArea(child: Calendar()),
       body: ListView(
         children: [
@@ -183,6 +221,7 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        key: _floatingButtonKey,
         onPressed: createHewHabit,
         elevation: 0,
         backgroundColor: Theme.of(context).colorScheme.tertiary,
@@ -218,6 +257,7 @@ class _HomePageState extends State<HomePage> {
           });
 
           return Heatmap(
+            key: _heatMap,
             onClick: (date) async => _showHabitsForDate(date),
             startDate: startDate,
             datasets: mergedDataset,
@@ -234,6 +274,7 @@ class _HomePageState extends State<HomePage> {
     List<Habit> currentHabits = habitDatabase.currentHabits;
 
     return ListView.builder(
+      key: _habitTile,
       itemCount: currentHabits.length,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),

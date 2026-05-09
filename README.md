@@ -26,5 +26,6 @@ flutter run
 - [x] Streaks
 - [x] Analytics
 - [x] Save Completed/Not Completed Habits on the date
-- [ ] Slidable hint
+- [x] Slidable hint
+- [ ] Tutorial
 - [ ] Create Habit hint (If no Habits in List View)

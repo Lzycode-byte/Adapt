@@ -6,12 +6,14 @@ class MyScaffold extends StatelessWidget {
   final Widget? body;
   final Widget? floatingActionButton;
   final String title;
+  final List<Widget>? actions;
 
   const MyScaffold({
     super.key,
     required this.body,
     required this.title,
     this.floatingActionButton,
+    this.actions,
   });
 
   @override
@@ -22,6 +24,7 @@ class MyScaffold extends StatelessWidget {
         title: Text(title),
         elevation: 0,
         backgroundColor: Colors.transparent,
+        actions: actions,
       ),
 
       drawer: const HomeDrawer(),
