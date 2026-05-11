@@ -35,7 +35,7 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     AssetLottie("assets/json_assets/2.json").load();
     AssetLottie("assets/json_assets/1.json").load();
-    AssetLottie("assets/json_assets/.json").load();
+    AssetLottie("assets/json_assets/Fire.json").load();
   }
 
   @override

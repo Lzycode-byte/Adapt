@@ -89,6 +89,7 @@ class _HomePageState extends State<HomePage> {
                 decoration: const InputDecoration(
                   hintText: "You're adapting a new habit",
                 ),
+                textCapitalization: TextCapitalization.sentences,
               ),
             ],
           ),
@@ -143,6 +144,7 @@ class _HomePageState extends State<HomePage> {
         content: TextField(
           controller: textController,
           decoration: const InputDecoration(hintText: "Update Habit name"),
+          textCapitalization: TextCapitalization.sentences,
         ),
         actions: [
           MaterialButton(
