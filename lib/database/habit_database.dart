@@ -8,6 +8,14 @@ import 'package:path_provider/path_provider.dart';
 class HabitDatabase extends ChangeNotifier {
   static late Isar isar;
 
+  // ── In-memory cache ────────────────────────────────────────────────────────
+  final List<Habit> currentHabits = [];
+  Map<DateTime, int> heatmapDataset = {};
+  DateTime? firstDateCache;
+  bool _initialized = false;
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+
   static Future<void> initialize() async {
     final dir = await getApplicationDocumentsDirectory();
     isar = await Isar.open([
@@ -17,63 +25,71 @@ class HabitDatabase extends ChangeNotifier {
     ], directory: dir.path);
   }
 
-  // Save firstLaunch date for heatmap
-  Future<void> saveFirstLaunchDate() async {
+  /// Call once on app start — loads first date, rebuilds today's snapshot,
+  /// then warms the heatmap cache. Safe to call multiple times.
+  Future<void> initCache() async {
+    if (_initialized) return;
+
+    // 1. Load or create first launch date
     final existingSettings = await isar.appSettings.where().findFirst();
     if (existingSettings == null) {
       final settings = AppSettings()..firstLaunchDate = DateTime.now();
       await isar.writeTxn(() => isar.appSettings.put(settings));
+      firstDateCache = settings.firstLaunchDate;
+    } else {
+      firstDateCache = existingSettings.firstLaunchDate;
     }
-  }
 
-  //Get firstDate of startup
-  Future<DateTime?> getFirstDate() async {
-    final settings = await isar.appSettings.where().findFirst();
-    return settings?.firstLaunchDate;
-  }
+    // 2. Always rewrite today's snapshot so completedDays from
+    //    Isar are reflected even without a toggle after relaunch
+    await _writeTodaySnapshot();
 
-  final List<Habit> currentHabits = [];
+    // 3. Build heatmap dataset from all snapshots
+    await _rebuildHeatmapDataset();
 
-  // CREATE
-  Future<void> addHabit(String name) async {
-    final newHabit = Habit()..name = name;
-    await isar.writeTxn(() => isar.habits.put(newHabit));
-    await saveDailySnapshot();
-    readHabits();
-  }
-
-  //READ
-  Future<void> readHabits() async {
-    List<Habit> fetchedHabits = await isar.habits.where().findAll();
-    currentHabits.clear();
-    currentHabits.addAll(fetchedHabits);
+    _initialized = true;
     notifyListeners();
   }
 
-  //UPDATE Habit completion
+  // ── CRUD ───────────────────────────────────────────────────────────────────
+
+  Future<void> addHabit(String name) async {
+    final newHabit = Habit()..name = name;
+    await isar.writeTxn(() => isar.habits.put(newHabit));
+    await _writeTodaySnapshot();
+    await readHabits();
+  }
+
+  Future<void> readHabits() async {
+    final fetched = await isar.habits.where().findAll();
+    currentHabits
+      ..clear()
+      ..addAll(fetched);
+    notifyListeners();
+  }
+
   Future<void> updateHabitCompletion(int id, bool isCompleted) async {
     final habit = await isar.habits.get(id);
     if (habit != null) {
       await isar.writeTxn(() async {
-        if (isCompleted && !habit.completedDays.contains(DateTime.now())) {
-          final today = DateTime.now();
+        final today = DateTime.now();
+        if (isCompleted) {
           habit.completedDays.add(DateTime(today.year, today.month, today.day));
         } else {
           habit.completedDays.removeWhere(
-            (date) =>
-                date.year == DateTime.now().year &&
-                date.month == DateTime.now().month &&
-                date.day == DateTime.now().day,
+            (d) =>
+                d.year == today.year &&
+                d.month == today.month &&
+                d.day == today.day,
           );
         }
         await isar.habits.put(habit);
       });
     }
-    await saveDailySnapshot();
-    readHabits();
+    await _writeTodaySnapshot();
+    await readHabits();
   }
 
-  // UPDATE Habit name
   Future<void> updateHabitName(int id, String newName) async {
     final habit = await isar.habits.get(id);
     if (habit != null) {
@@ -82,33 +98,31 @@ class HabitDatabase extends ChangeNotifier {
         await isar.habits.put(habit);
       });
     }
-    readHabits();
+    await readHabits();
   }
 
-  // DELETE
   Future<void> deleteHabit(int id) async {
-    await isar.writeTxn(() async {
-      await isar.habits.delete(id);
-    });
-    await saveDailySnapshot();
-    readHabits();
+    await isar.writeTxn(() => isar.habits.delete(id));
+    await _writeTodaySnapshot();
+    await readHabits();
   }
 
-  // Delete all
   Future<void> deleteAllHabits(List<int> ids) async {
-    await isar.writeTxn(() async {
-      await isar.habits.deleteAll(ids);
-    });
+    await isar.writeTxn(() => isar.habits.deleteAll(ids));
+    await _writeTodaySnapshot();
+    await readHabits();
   }
 
-  /// Call this whenever habit completion changes (in updateHabitCompletion)
-  Future<void> saveDailySnapshot() async {
+  // ── Snapshot ───────────────────────────────────────────────────────────────
+
+  /// Writes today's snapshot based on current Isar habit state,
+  /// then rebuilds the in-memory heatmap dataset.
+  Future<void> _writeTodaySnapshot() async {
     final today = DateTime.now();
     final normalizedToday = DateTime(today.year, today.month, today.day);
 
     final habits = await isar.habits.where().findAll();
 
-    // Build snapshot data
     final ids = <int>[];
     final names = <String>[];
     final completions = <bool>[];
@@ -126,7 +140,6 @@ class HabitDatabase extends ChangeNotifier {
       );
     }
 
-    // Check if snapshot for today already exists
     final existing = await isar.dailySnapshots
         .filter()
         .dateEqualTo(normalizedToday)
@@ -140,9 +153,24 @@ class HabitDatabase extends ChangeNotifier {
       snapshot.completionStatus = completions;
       await isar.dailySnapshots.put(snapshot);
     });
+
+    await _rebuildHeatmapDataset();
   }
 
-  /// Get snapshot for a specific date (used by heatmap bottom sheet)
+  /// Rebuilds heatmap dataset from all snapshots in Isar.
+  Future<void> _rebuildHeatmapDataset() async {
+    final snapshots = await isar.dailySnapshots.where().findAll();
+    final Map<DateTime, int> dataset = {};
+
+    for (final snapshot in snapshots) {
+      final count = snapshot.completionStatus.where((c) => c).length;
+      if (count > 0) dataset[snapshot.date] = count;
+    }
+
+    heatmapDataset = dataset;
+  }
+
+  /// Get snapshot for a specific date (used by heatmap bottom sheet).
   Future<DailySnapshot?> getSnapshotForDate(DateTime date) async {
     final normalized = DateTime(date.year, date.month, date.day);
     return await isar.dailySnapshots
@@ -151,38 +179,7 @@ class HabitDatabase extends ChangeNotifier {
         .findFirst();
   }
 
-  /// Check if a snapshot exists for today (call on app start)
-  Future<void> ensureTodaySnapshot() async {
-    final today = DateTime.now();
-    final normalized = DateTime(today.year, today.month, today.day);
-    final existing = await isar.dailySnapshots
-        .filter()
-        .dateEqualTo(normalized)
-        .findFirst();
-
-    // If no snapshot yet today, create one with current state
-    if (existing == null) {
-      await saveDailySnapshot();
-    }
-  }
-
-  /// Returns heatmap dataset from all saved snapshots (persists deleted habits)
-  Future<Map<DateTime, int>> getSnapshotHeatmapData() async {
-    final snapshots = await isar.dailySnapshots.where().findAll();
-    final Map<DateTime, int> dataset = {};
-
-    for (final snapshot in snapshots) {
-      final completedCount = snapshot.completionStatus
-          .where((c) => c == true)
-          .length;
-      if (completedCount > 0) {
-        dataset[snapshot.date] = completedCount;
-      }
-    }
-
-    return dataset;
-  }
-
+  /// Get all snapshots (used by analytics).
   Future<List<DailySnapshot>> getAllSnapshots() async {
     return await isar.dailySnapshots.where().findAll();
   }
