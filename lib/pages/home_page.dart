@@ -275,24 +275,26 @@ class _HomePageState extends State<HomePage> {
     final habitDatabase = context.watch<HabitDatabase>();
     List<Habit> currentHabits = habitDatabase.currentHabits;
 
-    return ListView.builder(
-      key: _habitTile,
-      itemCount: currentHabits.length,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemBuilder: (context, index) {
-        final habit = currentHabits[index];
-        bool isCompletedToday = isHabitCompleted(habit.completedDays);
-        return HabitTile(
-          isCompleted: isCompletedToday,
-          text: habit.name,
-          completedDays: habit.completedDays,
-          onChanged: (value) => checkOnOff(value, habit),
-          editHabit: (context) => editHabitBox(habit),
-          deleteHabit: (context) => deleteHabitBox(habit),
-        );
-      },
-    );
+    return currentHabits.isNotEmpty
+        ? ListView.builder(
+            key: _habitTile,
+            itemCount: currentHabits.length,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemBuilder: (context, index) {
+              final habit = currentHabits[index];
+              bool isCompletedToday = isHabitCompleted(habit.completedDays);
+              return HabitTile(
+                isCompleted: isCompletedToday,
+                text: habit.name,
+                completedDays: habit.completedDays,
+                onChanged: (value) => checkOnOff(value, habit),
+                editHabit: (context) => editHabitBox(habit),
+                deleteHabit: (context) => deleteHabitBox(habit),
+              );
+            },
+          )
+        : Center(key: _habitTile, child: Text("Create your first habit!"));
   }
 
   void _showHabitsForDate(DateTime date) async {
