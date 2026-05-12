@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
-import 'package:provider/provider.dart';
-
-import '../theme/theme_provider.dart';
 import 'drawer_item.dart';
 
 class HomeDrawer extends StatefulWidget {
