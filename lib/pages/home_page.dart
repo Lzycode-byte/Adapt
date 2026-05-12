@@ -19,19 +19,18 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late Future<List<Object?>> _heatmapFuture;
+  // REMOVED: _heatmapFuture — no longer needed
   final GlobalKey _floatingButtonKey = GlobalKey();
   final GlobalKey _habitTile = GlobalKey();
   final GlobalKey _heatMap = GlobalKey();
+  final TextEditingController textController = TextEditingController();
 
   @override
   void initState() {
-    final db = Provider.of<HabitDatabase>(context, listen: false);
-
-    db.readHabits();
-
     super.initState();
-    _refreshHeatmap();
+    final db = Provider.of<HabitDatabase>(context, listen: false);
+    db.initCache(); // loads firstDateCache, writes today's snapshot, builds heatmapDataset
+    db.readHabits();
   }
 
   void _startTutorial() {
@@ -52,22 +51,8 @@ class _HomePageState extends State<HomePage> {
         title: "Tap on the date!",
       ),
     ];
-    final tutorial = TutorialOverlay(context: context, steps: steps);
-
-    tutorial.show();
+    TutorialOverlay(context: context, steps: steps).show();
   }
-
-  void _refreshHeatmap() {
-    final db = Provider.of<HabitDatabase>(context, listen: false);
-    setState(() {
-      _heatmapFuture = Future.wait([
-        db.getFirstDate(),
-        db.getSnapshotHeatmapData(),
-      ]);
-    });
-  }
-
-  final TextEditingController textController = TextEditingController();
 
   void createHewHabit() {
     showDialog(
@@ -105,11 +90,10 @@ class _HomePageState extends State<HomePage> {
               onPressed: textController.text.trim().isEmpty
                   ? null
                   : () {
-                      String newHabitName = textController.text;
-                      context.read<HabitDatabase>().addHabit(newHabitName);
-
+                      context.read<HabitDatabase>().addHabit(
+                        textController.text,
+                      );
                       Navigator.pop(context);
-
                       textController.clear();
                     },
               child: const Text("Save"),
@@ -120,19 +104,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // void checkOnOff(bool? value, Habit habit) {
-  //   if (value != null) {
-  //     context.read<HabitDatabase>().updateHabitCompletion(habit.id, value);
-  //   }
-  // }
-
   void checkOnOff(bool? value, Habit habit) {
     if (value != null) {
-      context.read<HabitDatabase>().updateHabitCompletion(habit.id, value).then(
-        (_) {
-          _refreshHeatmap(); // ADD — refresh after toggle
-        },
-      );
+      // updateHabitCompletion calls _writeTodaySnapshot + _rebuildHeatmapDataset
+      // internally, then notifyListeners via readHabits — no manual refresh needed
+      context.read<HabitDatabase>().updateHabitCompletion(habit.id, value);
     }
   }
 
@@ -156,19 +132,13 @@ class _HomePageState extends State<HomePage> {
           ),
           MaterialButton(
             onPressed: () {
-              textController.text.trim().isEmpty
-                  ? null
-                  : () {
-                      String newHabitName = textController.text;
-                      context.read<HabitDatabase>().updateHabitName(
-                        habit.id,
-                        newHabitName,
-                      );
-
-                      Navigator.pop(context);
-
-                      textController.clear();
-                    };
+              if (textController.text.trim().isEmpty) return;
+              context.read<HabitDatabase>().updateHabitName(
+                habit.id,
+                textController.text,
+              );
+              Navigator.pop(context);
+              textController.clear();
             },
             child: const Text("Save"),
           ),
@@ -184,16 +154,14 @@ class _HomePageState extends State<HomePage> {
         title: const Text("Are you sure you want to delete?"),
         actions: [
           MaterialButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.pop(context),
             child: const Text("Cancel"),
           ),
           MaterialButton(
             onPressed: () {
+              // deleteHabit calls _writeTodaySnapshot + _rebuildHeatmapDataset
+              // internally — heatmap updates automatically via notifyListeners
               context.read<HabitDatabase>().deleteHabit(habit.id);
-              _refreshHeatmap();
-
               Navigator.pop(context);
             },
             child: const Text("Delete"),
@@ -210,15 +178,14 @@ class _HomePageState extends State<HomePage> {
       actions: [
         IconButton(
           onPressed: _startTutorial,
-          icon: Icon(CupertinoIcons.question_circle),
+          icon: const Icon(CupertinoIcons.question_circle),
         ),
       ],
-      // body: SafeArea(child: Calendar()),
       body: ListView(
         children: [
           _buildHeatMap(),
-          Divider(endIndent: 20, indent: 30, thickness: 0.5),
-          SizedBox(height: 10),
+          const Divider(endIndent: 20, indent: 30, thickness: 0.5),
+          const SizedBox(height: 10),
           _buildHabitList(),
         ],
       ),
@@ -234,46 +201,20 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildHeatMap() {
     final habitDatabase = context.watch<HabitDatabase>();
-    final List<Habit> currentHabits = habitDatabase.currentHabits;
+    final startDate = habitDatabase.firstDateCache;
+    if (startDate == null) return Container();
 
-    return FutureBuilder<List<Object?>>(
-      future: _heatmapFuture,
-      // future: Future.wait([
-      //   habitDatabase.getFirstDate(),
-      //   habitDatabase.getSnapshotHeatmapData(), // ADD
-      // ]),
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          final startDate = snapshot.data![0] as DateTime?;
-          final snapshotDataset = snapshot.data![1] as Map<DateTime, int>;
-
-          if (startDate == null) return Container();
-
-          // Live data for today's current habits
-          final liveDataset = prepHeatMapDatabase(currentHabits);
-
-          // Merge: snapshot as base, live data fills/overwrites today
-          final mergedDataset = Map<DateTime, int>.from(snapshotDataset);
-          liveDataset.forEach((date, count) {
-            mergedDataset[date] = count; // live overwrites for today
-          });
-
-          return Heatmap(
-            key: _heatMap,
-            onClick: (date) async => _showHabitsForDate(date),
-            startDate: startDate,
-            datasets: mergedDataset,
-          );
-        } else {
-          return Container();
-        }
-      },
+    return Heatmap(
+      key: _heatMap,
+      onClick: (date) async => _showHabitsForDate(date),
+      startDate: startDate,
+      datasets: Map<DateTime, int>.from(habitDatabase.heatmapDataset),
     );
   }
 
   Widget _buildHabitList() {
     final habitDatabase = context.watch<HabitDatabase>();
-    List<Habit> currentHabits = habitDatabase.currentHabits;
+    final currentHabits = habitDatabase.currentHabits;
 
     return currentHabits.isNotEmpty
         ? ListView.builder(
@@ -283,9 +224,8 @@ class _HomePageState extends State<HomePage> {
             physics: const NeverScrollableScrollPhysics(),
             itemBuilder: (context, index) {
               final habit = currentHabits[index];
-              bool isCompletedToday = isHabitCompleted(habit.completedDays);
               return HabitTile(
-                isCompleted: isCompletedToday,
+                isCompleted: isHabitCompleted(habit.completedDays),
                 text: habit.name,
                 completedDays: habit.completedDays,
                 onChanged: (value) => checkOnOff(value, habit),
@@ -294,7 +234,10 @@ class _HomePageState extends State<HomePage> {
               );
             },
           )
-        : Center(key: _habitTile, child: Text("Create your first habit!"));
+        : Center(
+            key: _habitTile,
+            child: const Text("Create your first habit!"),
+          );
   }
 
   void _showHabitsForDate(DateTime date) async {
@@ -308,7 +251,6 @@ class _HomePageState extends State<HomePage> {
 
     List<Map<String, dynamic>> habitsWithStatus = [];
 
-    // Always try snapshot first (works for both past AND today)
     final snapshot = await habitDatabase.getSnapshotForDate(normalizedDate);
 
     if (snapshot != null) {
@@ -319,7 +261,7 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } else if (normalizedDate == today) {
-      // Fallback: snapshot not yet created (first launch, no habit toggled yet)
+      // Fallback: first launch before any toggle
       for (final habit in habitDatabase.currentHabits) {
         habitsWithStatus.add({
           'name': habit.name,
@@ -337,7 +279,7 @@ class _HomePageState extends State<HomePage> {
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // lets the sheet grow taller if needed
+      isScrollControlled: true,
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.4,
         minChildSize: 0.25,
@@ -348,7 +290,6 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Drag handle
               Center(
                 child: Container(
                   width: 40,
@@ -367,7 +308,6 @@ class _HomePageState extends State<HomePage> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 4),
-              // Completion summary
               if (habitsWithStatus.isNotEmpty)
                 Text(
                   '${habitsWithStatus.where((h) => h['isCompleted'] == true).length}'
@@ -438,7 +378,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Helper
   String _monthName(int month) {
     const names = [
       'Jan',

@@ -8,8 +8,8 @@ import 'package:provider/provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HabitDatabase.initialize();
-  await HabitDatabase().saveFirstLaunchDate();
-  await HabitDatabase().ensureTodaySnapshot();
+  final db = HabitDatabase();
+  await db.initCache();
 
   runApp(
     MultiProvider(
